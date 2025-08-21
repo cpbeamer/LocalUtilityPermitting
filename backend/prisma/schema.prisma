@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id           String   @id @default(uuid())
+  name         String
+  code         String   @unique
+  address      String
+  contactEmail String
+  contactPhone String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users        User[]
+  tickets      Ticket[]
+  permits      Permit[]
+  trafficPlans TrafficPlan[]
+  inspections  Inspection[]
+  evidence     Evidence[]
+  fees         Fee[]
+  auditLogs    AuditLog[]
+
+  @@map("organizations")
+}
+
+enum UserRole {
+  PERMIT_COORDINATOR
+  FIELD_SUPERVISOR
+  COMPLIANCE_MANAGER
+}
+
+model User {
+  id             String   @id @default(uuid())
+  organizationId String
+  email          String   @unique
+  passwordHash   String
+  name           String
+  role           UserRole
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  evidence     Evidence[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+enum TicketStatus {
+  INTAKE
+  PERMIT_FILED
+  INSPECTION_SCHEDULED
+  FIELD_WORK
+  INSPECTION_PENDING
+  CLOSED
+}
+
+enum UtilityType {
+  ELECTRIC
+  GAS
+  WATER
+  SEWER
+  TELECOM
+  CABLE
+  FIBER
+}
+
+model Ticket {
+  id               String        @id @default(uuid())
+  organizationId   String
+  ticketNumber     String        @unique
+  source           String
+  status           TicketStatus  @default(INTAKE)
+  excavatorName    String
+  excavatorPhone   String
+  excavatorEmail   String?
+  workAddress      String
+  latitude         Float
+  longitude        Float
+  utilityTypes     UtilityType[]
+  workStartDate    DateTime
+  workEndDate      DateTime
+  workDescription  String
+  emergencyContact String?
+  rawData          Json
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  permits      Permit[]
+  trafficPlans TrafficPlan[]
+  inspections  Inspection[]
+  evidence     Evidence[]
+  fees         Fee[]
+  auditLogs    AuditLog[]
+
+  @@map("tickets")
+}
+
+model Permit {
+  id              String    @id @default(uuid())
+  ticketId        String
+  organizationId  String
+  permitNumber    String?
+  municipality    String
+  permitType      String
+  applicationData Json
+  prefilledData   Json
+  fee             Float
+  status          String
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  pdfPath         String?
+  xmlPath         String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  ticket       Ticket        @relation(fields: [ticketId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  inspections  Inspection[]
+
+  @@map("permits")
+}
+
+model TrafficPlan {
+  id             String   @id @default(uuid())
+  ticketId       String
+  organizationId String
+  templateId     String
+  templateName   String
+  generatedData  Json
+  pdfPath        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  ticket       Ticket       @relation(fields: [ticketId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("traffic_plans")
+}
+
+model Inspection {
+  id              String    @id @default(uuid())
+  ticketId        String
+  permitId        String?
+  organizationId  String
+  inspectionType  String
+  scheduledDate   DateTime
+  scheduledTime   String
+  inspector       String
+  inspectorContact String
+  status          String
+  notes           String?
+  completedAt     DateTime?
+  calendarEventId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  ticket       Ticket       @relation(fields: [ticketId], references: [id])
+  permit       Permit?      @relation(fields: [permitId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("inspections")
+}
+
+enum EvidenceType {
+  LOCATE_PROOF
+  INSPECTION_EVIDENCE
+  AS_BUILT
+  COMPLIANCE_PHOTO
+}
+
+model Evidence {
+  id             String       @id @default(uuid())
+  ticketId       String
+  organizationId String
+  userId         String
+  type           EvidenceType
+  title          String
+  description    String?
+  filePath       String
+  fileType       String
+  fileSize       Int
+  gpsLatitude    Float?
+  gpsLongitude   Float?
+  capturedAt     DateTime
+  createdAt      DateTime     @default(now())
+
+  ticket       Ticket       @relation(fields: [ticketId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@map("evidence")
+}
+
+model Fee {
+  id               String    @id @default(uuid())
+  ticketId         String
+  organizationId   String
+  type             String
+  description      String
+  amount           Float
+  dueDate          DateTime
+  paidDate         DateTime?
+  paidAmount       Float?
+  status           String
+  referenceNumber  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  ticket       Ticket       @relation(fields: [ticketId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("fees")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  ticketId       String
+  organizationId String
+  userId         String
+  action         String
+  entityType     String
+  entityId       String
+  previousData   Json?
+  newData        Json
+  timestamp      DateTime @default(now())
+  ipAddress      String?
+  userAgent      String?
+
+  ticket       Ticket       @relation(fields: [ticketId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}

@@ -60,8 +60,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { token, user: userData } = response.data.data;
       
       localStorage.setItem('auth_token', token);
+      // Ensure user has proper structure with organization
       setUser(userData);
     } catch (error: any) {
+      console.error('Login error:', error);
       throw new Error(error.response?.data?.error || 'Login failed');
     }
   };
